@@ -28,18 +28,27 @@ defmodule Workout do
   # see the tests for more examples
   @spec fold(b, list(a), (a, b -> b)) :: b
   def fold(accum, [], _func) do
-    []
+    accum
   end
 
   def fold(accum, [ fst | rst ], func) do
-    accum
+    fold(func.(fst, accum), rst, func)
   end
 
   # some of the following functions benefit from having an easy way to
   # append an item to a list.
   @spec append(a, list(a)) :: list(a)
+  def append(x, []) do
+    [x]
+  end
+
+  def append(nil, items) do
+    items
+  end
+
+
   def append(x, items) do
-    []
+    Enum.concat items, [x]
   end
 
   # map should be defined in terms of fold!
@@ -48,22 +57,14 @@ defmodule Workout do
   # to each element (e.g. [2, 3, 4])
   @spec map(list(a), (a -> b)) :: list(b)
   def map(items, func) do
-    items
+    fold [], items, fn i, l -> append(func.(i), l) end
   end
 
   # filter should also be defined in terms of fold! it's a theme!
   # no I don't know why I'm still using exclamations!
   @spec filter(list(a), (a -> boolean)) :: list(a)
   def filter(items, pred) do
-    items
-  end
-
-  # you can try defining `any` in terms of `filter` or `all`.
-  # it should return true if `pred(item)` is true for at least one item in the
-  # given `items` list, else false
-  @spec any(list(a), (a -> boolean)) :: boolean
-  def any(items, pred) do
-    true
+    fold([], items, fn i, l -> if !pred.(i), do: l, else: append(i, l) end )
   end
 
   # there are also mutiple ways to define `all`. you can try defining it in
@@ -71,7 +72,16 @@ defmodule Workout do
   # `item` in the given list `items`, else false
   @spec all(list(a), (a -> boolean)) :: boolean
   def all(items, pred) do
-    true
+      length(filter(items, pred)) == length(items)
+  end
+
+  # you can try defining `any` in terms of `filter` or `all`.
+  # it should return true if `pred(item)` is true for at least one item in the
+  # given `items` list, else false
+  @spec any(list(a), (a -> boolean)) :: boolean
+  def any(items, pred) do
+      # Inefficient...
+      length(filter(items, pred)) > 0
   end
 
 
@@ -79,36 +89,43 @@ defmodule Workout do
   # given list. this should be defined in terms of `fold`.
   @spec max(list(a)) :: a
   def max([]) do
-    []
+    {:error, :noitems}
   end
 
   def max([fst | rst]) do
-    fst
+    fold(fst, rst, fn x, y -> if x > y, do: x, else: y end)
   end
 
   # min should return the smallest item (using the built-in < operator) in a
   # given list. this should be defined in terms of `fold`.
   @spec min(list(a)) :: a
   def min([]) do
-    []
+    {:error, :noitems}
   end
 
   def min([fst | rst]) do
-    fst
+    fold(fst, rst, fn x, y -> if x < y, do: x, else: y end)
   end
 
   # `len` should count the number of items in the given list. this should be
   # defined in terms of `fold`.
   @spec len(list(a)) :: integer
   def len(items) do
-    0
+    fold(0, items, fn _, y -> y + 1 end)
   end
 
   # splits one list into two. the first list contains all of the elements
   # where `pred(element)` is true, and the second list contains the rest
   @spec split_by(list(a), (a -> boolean)) :: { list(a), list(a) }
   def split_by(items, pred) do
-    { [], [] }
+    fold({ [], [] }, items,
+      fn i, l ->
+          if pred.(i) do
+              {append(i, elem(l, 0)), elem(l, 1)}
+          else
+              {elem(l, 0), append(i, elem(l, 1))}
+          end
+      end)
   end
 
   # this should be defined in terms of either fold or filter. don't worry about
@@ -116,7 +133,11 @@ defmodule Workout do
   # [1, 3, 2], it should be sorted as [1, 2, 3])
   @spec insertion_sort(list(a)) :: list(a)
   def insertion_sort(items) do
-    []
+    fold([], items,
+        fn target, l ->
+            parts = split_by(l, fn (v) -> v < target end)
+            insertion_sort(elem(parts, 0)) ++ [target] ++ insertion_sort(elem(parts, 1))
+        end)
   end
 
 end
