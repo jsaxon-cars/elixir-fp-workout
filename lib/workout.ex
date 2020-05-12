@@ -32,7 +32,12 @@ defmodule Workout do
   end
 
   def fold(accum, [ fst | rst ], func) do
-    fold(func.(fst, accum), rst, func)
+    fst
+    |> func.(accum)
+    |> fold(rst, func)
+    # Was:  fold(func.(fst, accum), rst, func)
+    # With a function like fold, it's really hard to know what's actually
+    # a more readable version.  I think you just have to understand "fold"
   end
 
   # some of the following functions benefit from having an easy way to
@@ -64,7 +69,7 @@ defmodule Workout do
   # no I don't know why I'm still using exclamations!
   @spec filter(list(a), (a -> boolean)) :: list(a)
   def filter(items, pred) do
-    fold([], items, fn i, l -> if !pred.(i), do: l, else: append(i, l) end )
+    fold([], items, fn i, l -> if not pred.(i), do: l, else: append(i, l) end )
   end
 
   # there are also mutiple ways to define `all`. you can try defining it in
@@ -72,7 +77,11 @@ defmodule Workout do
   # `item` in the given list `items`, else false
   @spec all(list(a), (a -> boolean)) :: boolean
   def all(items, pred) do
-      length(filter(items, pred)) == length(items)
+      # How to break early??
+      case filter(items, fn i -> not pred.(i) end) do
+        [] -> true
+        _ -> false
+      end
   end
 
   # you can try defining `any` in terms of `filter` or `all`.
@@ -81,7 +90,13 @@ defmodule Workout do
   @spec any(list(a), (a -> boolean)) :: boolean
   def any(items, pred) do
       # Inefficient...
-      length(filter(items, pred)) > 0
+      #length(filter(items, pred)) > 0
+      # More readable:
+      # How to break early??
+      case filter(items, pred) do
+        [] -> false
+        _ -> true
+      end
   end
 
 
@@ -89,7 +104,7 @@ defmodule Workout do
   # given list. this should be defined in terms of `fold`.
   @spec max(list(a)) :: a
   def max([]) do
-    {:error, :noitems}
+    :noitems
   end
 
   def max([fst | rst]) do
@@ -100,7 +115,7 @@ defmodule Workout do
   # given list. this should be defined in terms of `fold`.
   @spec min(list(a)) :: a
   def min([]) do
-    {:error, :noitems}
+    :noitems
   end
 
   def min([fst | rst]) do
@@ -118,14 +133,15 @@ defmodule Workout do
   # where `pred(element)` is true, and the second list contains the rest
   @spec split_by(list(a), (a -> boolean)) :: { list(a), list(a) }
   def split_by(items, pred) do
-    fold({ [], [] }, items,
-      fn i, l ->
+    splitter =
+      fn i, {left, right} ->
           if pred.(i) do
-              {append(i, elem(l, 0)), elem(l, 1)}
+              {append(i, left), right}
           else
-              {elem(l, 0), append(i, elem(l, 1))}
+              {left, append(i, right)}
           end
-      end)
+      end
+    fold({ [], [] }, items, splitter)
   end
 
   # this should be defined in terms of either fold or filter. don't worry about
@@ -135,8 +151,8 @@ defmodule Workout do
   def insertion_sort(items) do
     fold([], items,
         fn target, l ->
-            parts = split_by(l, fn (v) -> v < target end)
-            insertion_sort(elem(parts, 0)) ++ [target] ++ insertion_sort(elem(parts, 1))
+            {left, right} = split_by(l, fn (v) -> v < target end)
+            insertion_sort(left) ++ [target] ++ insertion_sort(right)
         end)
   end
 
